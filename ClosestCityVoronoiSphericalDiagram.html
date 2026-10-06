@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Closest City Map</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --border:#2a2e38; --text:#e8eaed; --muted:#9aa0ac;
+  --accent:#4f8cff;
+  --c0:#4f8cff; --c1:#ff9f4f; --c2:#ff4fa3; --c3:#4fd48a;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f5f7; --panel:#ffffff; --border:#d9dce1; --text:#1a1c20; --muted:#5b6170;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f5f7; --panel:#ffffff; --border:#d9dce1; --text:#1a1c20; --muted:#5b6170;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  padding-left:12px; padding-right:12px;
+}
+.wrap{max-width:900px;margin:0 auto;padding:20px 0 40px}
+h1{font-size:1.25rem;margin:0 0 4px}
+p.sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (max-width:520px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px}
+input[type=text]{
+  width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:.95rem;
+}
+input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+button{
+  margin-top:14px;width:100%;padding:11px;border:none;border-radius:8px;
+  background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;cursor:pointer;
+}
+button:active{opacity:.85}
+button:disabled{opacity:.5;cursor:default}
+#status{font-size:.8rem;color:var(--muted);margin-top:8px;min-height:1em}
+canvas{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--border)}
+#legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:.85rem}
+#legend span{display:inline-flex;align-items:center}
+datalist{}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Closest-city map</h1>
+  <p class="sub">Pick 4 cities. Every point on Earth is coloured by whichever one is nearest (great-circle distance).</p>
+
+  <div class="panel">
+    <div class="grid" id="inputs"></div>
+    <button id="go">Generate map</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel">
+    <canvas id="map" width="1200" height="600"></canvas>
+    <div id="legend"></div>
+  </div>
+
+  <div class="panel" style="font-size:.8rem;color:var(--muted)">
+    Runs offline from a built-in list of ~200 major world cities (no live geocoding) — type a name and pick it from the suggestions. Projection is equirectangular; distances are true great-circle (haversine), so the coloured regions curve the way they do on a globe.
+  </div>
+</div>
+
+<datalist id="cityList"></datalist>
+
+<script>
+// Built-in city database: name -> [lat, lon]
+const CITIES = {
+"London":[51.51,-0.13],"Edinburgh":[55.95,-3.19],"Glasgow":[55.86,-4.25],"Aberdeen":[57.15,-2.09],
+"Inverness":[57.48,-4.22],"Manchester":[53.48,-2.24],"Birmingham":[52.48,-1.90],"Dublin":[53.35,-6.26],
+"Paris":[48.86,2.35],"Berlin":[52.52,13.41],"Madrid":[40.42,-3.70],"Rome":[41.90,12.50],
+"Lisbon":[38.72,-9.14],"Amsterdam":[52.37,4.90],"Brussels":[50.85,4.35],"Vienna":[48.21,16.37],
+"Zurich":[47.38,8.54],"Stockholm":[59.33,18.07],"Oslo":[59.91,10.75],"Copenhagen":[55.68,12.57],
+"Helsinki":[60.17,24.94],"Warsaw":[52.23,21.01],"Prague":[50.08,14.44],"Budapest":[47.50,19.04],
+"Athens":[37.98,23.73],"Istanbul":[41.01,28.98],"Moscow":[55.76,37.62],"Kyiv":[50.45,30.52],
+"Reykjavik":[64.15,-21.94],"Rabat":[34.02,-6.84],"Cairo":[30.04,31.24],"Lagos":[6.52,3.38],
+"Nairobi":[-1.29,36.82],"Johannesburg":[-26.20,28.05],"Cape Town":[-33.92,18.42],"Casablanca":[33.57,-7.59],
+"Accra":[5.60,-0.19],"Addis Ababa":[9.03,38.74],"Algiers":[36.75,3.06],"Tunis":[36.81,10.18],
+"Dubai":[25.20,55.27],"Riyadh":[24.71,46.68],"Tehran":[35.69,51.39],"Jerusalem":[31.78,35.22],
+"Baghdad":[33.32,44.36],"Karachi":[24.86,67.01],"Mumbai":[19.08,72.88],"Delhi":[28.61,77.21],
+"Bangalore":[12.97,77.59],"Kolkata":[22.57,88.36],"Dhaka":[23.81,90.41],"Colombo":[6.93,79.85],
+"Kathmandu":[27.72,85.32],"Bangkok":[13.75,100.50],"Hanoi":[21.03,105.85],"Ho Chi Minh City":[10.82,106.63],
+"Singapore":[1.35,103.82],"Kuala Lumpur":[3.14,101.69],"Jakarta":[-6.21,106.85],"Manila":[14.60,120.98],
+"Beijing":[39.90,116.41],"Shanghai":[31.23,121.47],"Hong Kong":[22.32,114.17],"Taipei":[25.03,121.57],
+"Seoul":[37.57,126.98],"Tokyo":[35.68,139.69],"Osaka":[34.69,135.50],"Ulaanbaatar":[47.89,106.91],
+"Perth (Aus)":[-31.95,115.86],"Adelaide":[-34.93,138.60],"Melbourne":[-37.81,144.96],"Sydney":[-33.87,151.21],
+"Brisbane":[-27.47,153.03],"Auckland":[-36.85,174.76],"Wellington":[-41.29,174.78],"Honolulu":[21.31,-157.86],
+"Anchorage":[61.22,-149.90],"Vancouver":[49.28,-123.12],"Seattle":[47.61,-122.33],"San Francisco":[37.77,-122.42],
+"Los Angeles":[34.05,-118.24],"Las Vegas":[36.17,-115.14],"Denver":[39.74,-104.99],"Phoenix":[33.45,-112.07],
+"Dallas":[32.78,-96.80],"Houston":[29.76,-95.37],"Chicago":[41.88,-87.63],"Minneapolis":[44.98,-93.27],
+"Toronto":[43.65,-79.38],"Montreal":[45.50,-73.57],"Detroit":[42.33,-83.05],"Atlanta":[33.75,-84.39],
+"Miami":[25.76,-80.19],"New York":[40.71,-74.01],"Boston":[42.36,-71.06],"Washington DC":[38.91,-77.04],
+"Mexico City":[19.43,-99.13],"Guatemala City":[14.63,-90.51],"Havana":[23.11,-82.37],"San Juan":[18.47,-66.11],
+"Bogota":[4.71,-74.07],"Caracas":[10.48,-66.90],"Quito":[-0.18,-78.47],"Lima":[-12.05,-77.04],
+"La Paz":[-16.50,-68.15],"Santiago":[-33.45,-70.67],"Buenos Aires":[-34.60,-58.38],"Montevideo":[-34.90,-56.16],
+"Asuncion":[-25.26,-57.58],"Brasilia":[-15.79,-47.88],"Sao Paulo":[-23.55,-46.63],"Rio de Janeiro":[-22.91,-43.17],
+"Nuuk":[64.18,-51.69],"Reykjavik2":[64.14,-21.94],"Doha":[25.29,51.53],"Abu Dhabi":[24.47,54.37],
+"Baku":[40.41,49.87],"Tbilisi":[41.72,44.79],"Almaty":[43.24,76.90],"Tashkent":[41.30,69.24],
+"New Delhi":[28.61,77.21],"Islamabad":[33.68,73.05],"Kabul":[34.56,69.21],"Yangon":[16.87,96.20],
+"Vientiane":[17.98,102.63],"Phnom Penh":[11.56,104.92],"Lahore":[31.56,74.36],"Chennai":[13.08,80.27],
+"Hyderabad":[17.39,78.49],"Ankara":[39.93,32.86],"Minsk":[53.90,27.57],"Riga":[56.95,24.11],
+"Vilnius":[54.69,25.28],"Tallinn":[59.44,24.75],"Sofia":[42.70,23.32],"Bucharest":[44.43,26.10],
+"Belgrade":[44.79,20.45],"Zagreb":[45.81,15.98],"Ljubljana":[46.06,14.51],"Bratislava":[48.15,17.11],
+"Luxembourg":[49.61,6.13],"Bern":[46.95,7.45],"Milan":[45.46,9.19],"Naples":[40.85,14.27],
+"Barcelona":[41.39,2.17],"Valencia":[39.47,-0.38],"Porto":[41.15,-8.61],"Geneva":[46.20,6.14],
+"Marseille":[43.30,5.37],"Lyon":[45.76,4.84],"Hamburg":[53.55,9.99],"Munich":[48.14,11.58],
+"Frankfurt":[50.11,8.68],"Cologne":[50.94,6.96],"Rotterdam":[51.92,4.48],"Antwerp":[51.22,4.40],
+"Gothenburg":[57.71,11.97],"Bergen":[60.39,5.32],"Belfast":[54.60,-5.93],"Cardiff":[51.48,-3.18],
+"Leeds":[53.80,-1.55],"Liverpool":[53.41,-2.98],"Bristol":[51.45,-2.59],"Newcastle":[54.98,-1.61],
+"Southampton":[50.91,-1.40],"Nottingham":[52.95,-1.15],"Sheffield":[53.38,-1.47],"Yakutsk":[62.03,129.73],
+"Vladivostok":[43.12,131.89],"Novosibirsk":[55.03,82.92],"Ekaterinburg":[56.84,60.61],"St Petersburg":[59.93,30.34],
+"Casper":[42.87,-106.31],"Winnipeg":[49.90,-97.14],"Calgary":[51.05,-114.07],"Edmonton":[53.55,-113.49],
+"Halifax":[44.65,-63.57],"Iqaluit":[63.75,-68.52],"Fairbanks":[64.84,-147.72],"Suva":[-18.14,178.44],
+"Port Moresby":[-9.48,147.15],"Noumea":[-22.28,166.46],"Antananarivo":[-18.88,47.51],"Harare":[-17.83,31.05],
+"Luanda":[-8.84,13.23],"Kinshasa":[-4.44,15.27],"Dakar":[14.72,-17.47],"Abidjan":[5.35,-4.03],
+"Khartoum":[15.50,32.56],"Mogadishu":[2.04,45.34],"Tripoli":[32.89,13.19],"Muscat":[23.59,58.41],
+"Kuwait City":[29.38,47.98],"Amman":[31.95,35.93],"Beirut":[33.89,35.50],"Damascus":[33.51,36.28],
+"Yerevan":[40.18,44.51],"Ashgabat":[37.95,58.38],"Dushanbe":[38.56,68.77],"Bishkek":[42.87,74.59],
+"Ulan Bator2":[47.92,106.92],"Guangzhou":[23.13,113.26],"Shenzhen":[22.54,114.06],"Chengdu":[30.57,104.07],
+"Wuhan":[30.59,114.31],"Xian":[34.27,108.95],"Harbin":[45.80,126.53],"Lhasa":[29.65,91.12],
+"Urumqi":[43.83,87.62],"Davao":[7.07,125.61],"Cebu":[10.32,123.90],"Christchurch":[-43.53,172.64],
+"Darwin":[-12.46,130.84],"Hobart":[-42.88,147.33],"Nouakchott":[18.08,-15.98],"Bamako":[12.65,-8.00],
+"Niamey":[13.51,2.11],"Ndjamena":[12.13,15.06],"Juba":[4.85,31.59],"Kigali":[-1.94,30.06],
+"Lusaka":[-15.39,28.32],"Maputo":[-25.97,32.58],"Windhoek":[-22.57,17.08],"Gaborone":[-24.65,25.91],
+"Ouagadougou":[12.37,-1.52],"Lome":[6.17,1.23],"Freetown":[8.48,-13.23],"Monrovia":[6.30,-10.80]
+};
+
+const dl = document.getElementById('cityList');
+Object.keys(CITIES).forEach(name=>{
+  const opt = document.createElement('option'); opt.value = name; dl.appendChild(opt);
+});
+
+const COLORS = [
+  getComputedStyle(document.documentElement).getPropertyValue('--c0').trim() || '#4f8cff',
+  getComputedStyle(document.documentElement).getPropertyValue('--c1').trim() || '#ff9f4f',
+  getComputedStyle(document.documentElement).getPropertyValue('--c2').trim() || '#ff4fa3',
+  getComputedStyle(document.documentElement).getPropertyValue('--c3').trim() || '#4fd48a'
+];
+const RGB = ['79,140,255','255,159,79','255,79,163','79,212,138'];
+
+const inputsEl = document.getElementById('inputs');
+const defaults = ["Edinburgh","Aberdeen","Glasgow","Inverness"];
+for(let i=0;i<4;i++){
+  const d = document.createElement('div');
+  d.innerHTML = `<label><span class="swatch" style="background:${COLORS[i]}"></span>City ${i+1}</label>
+    <input type="text" list="cityList" id="city${i}" value="${defaults[i]}">`;
+  inputsEl.appendChild(d);
+}
+
+function haversine(lat1,lon1,lat2,lon2){
+  const toRad = d => d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function draw(){
+  const status = document.getElementById('status');
+  const names = [0,1,2,3].map(i=>document.getElementById('city'+i).value.trim());
+  const coords = [];
+  for(const n of names){
+    const key = Object.keys(CITIES).find(k=>k.toLowerCase()===n.toLowerCase());
+    if(!key){ status.textContent = `"${n}" isn't in the built-in list — try a nearby major city.`; return; }
+    coords.push(CITIES[key]);
+  }
+  status.textContent = '';
+
+  const canvas = document.getElementById('map');
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(w,h);
+
+  for(let y=0;y<h;y++){
+    const lat = 90 - (y/h)*180;
+    for(let x=0;x<w;x++){
+      const lon = (x/w)*360 - 180;
+      let best=0, bestD=Infinity;
+      for(let i=0;i<4;i++){
+        const d = haversine(lat,lon,coords[i][0],coords[i][1]);
+        if(d<bestD){bestD=d;best=i;}
+      }
+      const [r,g,b] = RGB[best].split(',').map(Number);
+      const idx = (y*w+x)*4;
+      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=160;
+    }
+  }
+  ctx.putImageData(img,0,0);
+
+  // graticule + equator/prime meridian for orientation
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  for(let lon=-180;lon<=180;lon+=30){
+    const x = (lon+180)/360*w;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+  }
+  for(let lat=-90;lat<=90;lat+=30){
+    const y = (90-lat)/180*h;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+
+  // city markers
+  ctx.font = 'bold 16px sans-serif';
+  coords.forEach((c,i)=>{
+    const x = (c[1]+180)/360*w;
+    const y = (90-c[0])/180*h;
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x,y,6,0,7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+    ctx.strokeText(names[i], x+10, y+5);
+    ctx.fillText(names[i], x+10, y+5);
+  });
+
+  const legend = document.getElementById('legend');
+  legend.innerHTML = names.map((n,i)=>`<span><span class="swatch" style="background:${COLORS[i]}"></span>${n}</span>`).join('');
+}
+
+document.getElementById('go').addEventListener('click', draw);
+draw();
+</script>
+</body>
+</html>
