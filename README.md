@@ -34,5 +34,6 @@ Resolution is capped at 1200x600 pixels for performance; this is more than enoug
 <img width="1288" height="948" alt="image" src="https://github.com/user-attachments/assets/6f7568ab-4c0d-4a8a-9234-6f363b9a1e8e" />
 https://www.reddit.com/r/Scotland/comments/1wkt11h/the_world_by_closest_scottish_city/
 
+
 <img width="1080" height="567" alt="image" src="https://github.com/user-attachments/assets/629e9c51-e89a-4a74-82b4-7375ef5ab860" />
 https://www.reddit.com/r/Wales/comments/1wt5uq0/the_world_by_closest_welsh_city/
