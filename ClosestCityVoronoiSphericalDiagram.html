@@ -81,7 +81,7 @@ datalist{}
   </div>
 
   <div class="panel" style="font-size:.8rem;color:var(--muted)">
-    Runs offline from a built-in list of ~200 major world cities (no live geocoding) — type a name and pick it from the suggestions. Projection is equirectangular; distances are true great-circl[...] 
+    Runs offline from a built-in list of ~200 major world cities (no live geocoding) — type a name and pick it from the suggestions. Projection is equirectangular; distances are true great-circle distances.
   </div>
 </div>
 
@@ -121,7 +121,7 @@ const CITIES = {
 "Nuuk":[64.18,-51.69],"Reykjavik2":[64.14,-21.94],"Doha":[25.29,51.53],"Abu Dhabi":[24.47,54.37],
 "Baku":[40.41,49.87],"Tbilisi":[41.72,44.79],"Almaty":[43.24,76.90],"Tashkent":[41.30,69.24],
 "New Delhi":[28.61,77.21],"Islamabad":[33.68,73.05],"Kabul":[34.56,69.21],"Yangon":[16.87,96.20],
-"Vientiane":[17.98,102.63],"Phnom Penh":[11.56,104.92],"Lahore":[31.56,74.36],"Chennai":[13.08,80.27],
+"Vientiane":[17.98,102.63],"Phnom Penh":[11.56,104.92],"Lahore":[31.56,74.36],"Layyah":[30.97,70.94],"Chennai":[13.08,80.27],
 "Hyderabad":[17.39,78.49],"Ankara":[39.93,32.86],"Minsk":[53.90,27.57],"Riga":[56.95,24.11],
 "Vilnius":[54.69,25.28],"Tallinn":[59.44,24.75],"Sofia":[42.70,23.32],"Bucharest":[44.43,26.10],
 "Belgrade":[44.79,20.45],"Zagreb":[45.81,15.98],"Ljubljana":[46.06,14.51],"Bratislava":[48.15,17.11],
@@ -166,8 +166,8 @@ const inputsEl = document.getElementById('inputs');
 const defaults = ["Edinburgh","Aberdeen","Glasgow","Inverness"];
 for(let i=0;i<4;i++){
   const d = document.createElement('div');
-  d.innerHTML = `<label><span class=\"swatch\" style=\"background:${COLORS[i]}\"></span>City ${i+1}</label>`+
-    `<input type=\"text\" list=\"cityList\" id=\"city${i}\" value=\"${defaults[i]}\">`;
+  d.innerHTML = `<label><span class="swatch" style="background:${COLORS[i]}"></span>City ${i+1}</label>`+
+    `<input type="text" list="cityList" id="city${i}" value="${defaults[i]}">`;
   inputsEl.appendChild(d);
 }
 
@@ -184,7 +184,7 @@ function draw(){
   const coords = [];
   for(const n of names){
     const key = Object.keys(CITIES).find(k=>k.toLowerCase()===n.toLowerCase());
-    if(!key){ status.textContent = `\"${n}\" isn't in the built-in list — try a nearby major city.`; return; }
+    if(!key){ status.textContent = `"${n}" isn't in the built-in list — try a nearby major city.`; return; }
     coords.push(CITIES[key]);
   }
   status.textContent = '';
@@ -236,7 +236,7 @@ function draw(){
   });
 
   const legend = document.getElementById('legend');
-  legend.innerHTML = names.map((n,i)=>`<span><span class=\"swatch\" style=\"background:${COLORS[i]}\"></span>${n}</span>`).join('');
+  legend.innerHTML = names.map((n,i)=>`<span><span class="swatch" style="background:${COLORS[i]}"></span>${n}</span>`).join('');
 }
 
 // When the window resizes, ensure the canvas overlays the background image exactly (the CSS handles most sizing,
