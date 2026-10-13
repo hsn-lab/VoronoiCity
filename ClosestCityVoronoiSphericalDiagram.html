@@ -31,9 +31,13 @@ body{
 h1{font-size:1.25rem;margin:0 0 4px}
 p.sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
-.panel.map-panel{ /* background image behind the translucent canvas */
-  background: var(--panel) url('https://desktop.arcgis.com/en/arcmap/latest/map/projections/GUID-F04836FF-CF82-4355-A1C6-7992378B32FB-web.png') center/cover no-repeat;
+/* use an explicit image element sized to the canvas instead of a CSS background so we can match dimensions exactly */
+.panel.map-panel{
+  background:var(--panel); /* no background-image here anymore */
 }
+.map-wrap{position:relative;overflow:hidden;border-radius:8px}
+.map-wrap img, .map-wrap canvas{display:block;width:100%;height:auto}
+.map-wrap canvas{position:absolute;left:0;top:0}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media (max-width:520px){.grid{grid-template-columns:1fr}}
 label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px}
@@ -68,7 +72,11 @@ datalist{}
   </div>
 
   <div class="panel map-panel">
-    <canvas id="map" width="1200" height="600"></canvas>
+    <!-- put the projection image as an <img> sized to the same display size as the canvas -->
+    <div class="map-wrap">
+      <img id="projectionBg" src="https://desktop.arcgis.com/en/arcmap/latest/map/projections/GUID-F04836FF-CF82-4355-A1C6-7992378B32FB-web.png" alt="projection"/>
+      <canvas id="map" width="1200" height="600"></canvas>
+    </div>
     <div id="legend"></div>
   </div>
 
@@ -158,8 +166,8 @@ const inputsEl = document.getElementById('inputs');
 const defaults = ["Edinburgh","Aberdeen","Glasgow","Inverness"];
 for(let i=0;i<4;i++){
   const d = document.createElement('div');
-  d.innerHTML = `<label><span class="swatch" style="background:${COLORS[i]}"></span>City ${i+1}</label>
-    <input type="text" list="cityList" id="city${i}" value="${defaults[i]}">`;
+  d.innerHTML = `<label><span class=\"swatch\" style=\"background:${COLORS[i]}\"></span>City ${i+1}</label>`+
+    `<input type=\"text\" list=\"cityList\" id=\"city${i}\" value=\"${defaults[i]}\">`;
   inputsEl.appendChild(d);
 }
 
@@ -176,7 +184,7 @@ function draw(){
   const coords = [];
   for(const n of names){
     const key = Object.keys(CITIES).find(k=>k.toLowerCase()===n.toLowerCase());
-    if(!key){ status.textContent = `"${n}" isn't in the built-in list — try a nearby major city.`; return; }
+    if(!key){ status.textContent = `\"${n}\" isn't in the built-in list — try a nearby major city.`; return; }
     coords.push(CITIES[key]);
   }
   status.textContent = '';
@@ -197,7 +205,7 @@ function draw(){
       }
       const [r,g,b] = RGB[best].split(',').map(Number);
       const idx = (y*w+x)*4;
-      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=128; // make map translucent so background shows through
+      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=128; // translucent overlay
     }
   }
   ctx.putImageData(img,0,0);
@@ -228,11 +236,26 @@ function draw(){
   });
 
   const legend = document.getElementById('legend');
-  legend.innerHTML = names.map((n,i)=>`<span><span class="swatch" style="background:${COLORS[i]}"></span>${n}</span>`).join('');
+  legend.innerHTML = names.map((n,i)=>`<span><span class=\"swatch\" style=\"background:${COLORS[i]}\"></span>${n}</span>`).join('');
 }
 
-document.getElementById('go').addEventListener('click', draw);
-draw();
+// When the window resizes, ensure the canvas overlays the background image exactly (the CSS handles most sizing,
+// but we need to align the canvas drawing scale if the canvas is visually resized). We'll scale the canvas display size
+// via CSS and leave the internal pixel buffer at 1200x600 — that's fine for this demo.
+function alignCanvasToImage(){
+  const img = document.getElementById('projectionBg');
+  const canvas = document.getElementById('map');
+  // make sure the canvas covers the image area
+  canvas.style.width = img.clientWidth + 'px';
+  canvas.style.height = img.clientHeight + 'px';
+}
+window.addEventListener('resize', alignCanvasToImage);
+window.addEventListener('load', alignCanvasToImage);
+
+document.getElementById('go').addEventListener('click', ()=>{ alignCanvasToImage(); draw(); });
+// initial draw once image is loaded and sizes aligned
+const bgImg = document.getElementById('projectionBg');
+if(bgImg.complete) { alignCanvasToImage(); draw(); } else { bgImg.onload = ()=>{ alignCanvasToImage(); draw(); } }
 </script>
 </body>
 </html>
