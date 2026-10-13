@@ -31,6 +31,9 @@ body{
 h1{font-size:1.25rem;margin:0 0 4px}
 p.sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.panel.map-panel{ /* background image behind the translucent canvas */
+  background: var(--panel) url('https://desktop.arcgis.com/en/arcmap/latest/map/projections/GUID-F04836FF-CF82-4355-A1C6-7992378B32FB-web.png') center/cover no-repeat;
+}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media (max-width:520px){.grid{grid-template-columns:1fr}}
 label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px}
@@ -47,7 +50,7 @@ button{
 button:active{opacity:.85}
 button:disabled{opacity:.5;cursor:default}
 #status{font-size:.8rem;color:var(--muted);margin-top:8px;min-height:1em}
-canvas{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--border)}
+canvas{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--border);background:transparent}
 #legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:.85rem}
 #legend span{display:inline-flex;align-items:center}
 datalist{}
@@ -64,13 +67,13 @@ datalist{}
     <div id="status"></div>
   </div>
 
-  <div class="panel">
+  <div class="panel map-panel">
     <canvas id="map" width="1200" height="600"></canvas>
     <div id="legend"></div>
   </div>
 
   <div class="panel" style="font-size:.8rem;color:var(--muted)">
-    Runs offline from a built-in list of ~200 major world cities (no live geocoding) — type a name and pick it from the suggestions. Projection is equirectangular; distances are true great-circle (haversine), so the coloured regions curve the way they do on a globe.
+    Runs offline from a built-in list of ~200 major world cities (no live geocoding) — type a name and pick it from the suggestions. Projection is equirectangular; distances are true great-circl[...] 
   </div>
 </div>
 
@@ -194,7 +197,7 @@ function draw(){
       }
       const [r,g,b] = RGB[best].split(',').map(Number);
       const idx = (y*w+x)*4;
-      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=160;
+      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=128; // make map translucent so background shows through
     }
   }
   ctx.putImageData(img,0,0);
